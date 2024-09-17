@@ -1,120 +1,34 @@
 "use client"
 
 import React, { useState, useEffect, useRef } from 'react'
-import { useTheme } from 'next-themes'
-
-const DISCORD_ID = '992171799536218142'; 
-
-const ASCII_CAT = `
- /\\_/\\
-( o.o )
- > ^ <
-`
-
-const ASCII_LOGO = `
- _   _                 _       _        
-| |_(_) __ _  ___ _ __| | __ _| | _____ 
-| __| |/ _\` |/ _ \\ '__| |/ _\` | |/ / _ \\
-| |_| | (_| |  __/ |  | | (_| |   <  __/
- \\__|_|\\__, |\\___|_|  |_|\\__,_|_|\\_\\___|
-  |___/                            
-   v1.0
-`
-
-const COMMANDS = {
-  help: 'Get a list of all available commands',
-  about: 'About me',
-  skills: 'Check out the skills I have',
-  projects: 'Some of my programming projects',
-  socials: 'My social networks',
-  clear: 'Clear the terminal',
-  theme: 'Change terminal theme (light/dark)',
-  music: 'Display currently playing music',
-  ascii: 'Toggle ASCII art',
-  echo: 'Echo a message',
-  date: 'Display current date and time',
-  welcome: 'Display welcome message',
-}
+import { useThemeSwitcher } from '@/hooks/useThemeSwitcher';
+import { useDiscordStatus } from '@/hooks/useDiscordStatus';
+import { ASCII_CAT_FRAMES, ASCII_LOGO } from '@/utils/asciiArt';
+import commands from '@/utils/commands';
 
 export default function TerminalWebsite() {
+  const { discordStatus, music, spotifyLink } = useDiscordStatus();
   const [input, setInput] = useState('')
   const [output, setOutput] = useState<React.ReactNode[]>([])
   const [history, setHistory] = useState<string[]>([])
   const [historyIndex, setHistoryIndex] = useState(-1)
   const [showAscii, setShowAscii] = useState(true)
-  const [music, setMusic] = useState<string | null>(null)
-  const [spotifyLink, setSpotifylink] = useState<string | null>(null)
-  interface DiscordStatus {
-    discord_status: 'online' | 'idle' | 'dnd' | 'offline';
-    spotify?: {
-      song: string;
-      artist: string;
-      track_id: string;
-    };
-  }
+  const [currentTime, setCurrentTime] = useState(new Date())
 
-  const [discordStatus, setDiscordStatus] = useState<DiscordStatus | null>(null);
-  const { theme, setTheme } = useTheme()
+  const { theme, switchTheme } = useThemeSwitcher();
   const bottomRef = useRef<HTMLDivElement>(null)
   const hasWelcomed = useRef(false)
-
-  // Discord status integration using Lanyard
-  useEffect(() => {
-    const socket = new WebSocket('wss://api.lanyard.rest/socket');
-    socket.addEventListener('open', () => {
-      socket.send(JSON.stringify({
-        op: 2,
-        d: {
-          subscribe_to_id: DISCORD_ID
-        }
-      }));
-    });
-
-    socket.addEventListener('message', (event) => {
-      const data = JSON.parse(event.data);
-      if (data.t === 'INIT_STATE' || data.t === 'PRESENCE_UPDATE') {
-        setDiscordStatus(data.d);
-      }
-    });
-
-    return () => socket.close();
-  }, []);
-
-  // Music update logic
-  useEffect(() => {
-    const socket = new WebSocket('wss://api.lanyard.rest/socket');
-  
-    socket.addEventListener('open', () => {
-      socket.send(JSON.stringify({
-        op: 2,
-        d: {
-          subscribe_to_id: DISCORD_ID
-        }
-      }));
-    });
-  
-    socket.addEventListener('message', (event) => {
-      const data = JSON.parse(event.data);
-  
-      if (data.t === 'INIT_STATE' || data.t === 'PRESENCE_UPDATE') {
-        setDiscordStatus(data.d);
-  
-        // Check for Spotify activity and update music state
-        if (data.d.spotify) {
-          setMusic(`${data.d.spotify.song} - ${data.d.spotify.artist}`);
-          setSpotifylink(`https://open.spotify.com/track/${data.d.spotify.track_id}`);
-        } else {
-          setMusic(null); // No music playing
-        }
-      }
-    });
-  
-    return () => socket.close();
-  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [output])
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date())
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -122,8 +36,8 @@ export default function TerminalWebsite() {
     if (trimmedInput) {
       addToOutput(
         <span>
-          <a className='text-blue-600'>visitor@tigerlake.xyz:~$ </a>
-          <a>{trimmedInput}</a>
+          <span className='text-blue-600 dark:text-blue-400'>visitor@tigerlake.xyz:~$ </span>
+          <span>{trimmedInput}</span>
         </span>
       )
       handleCommand(trimmedInput)
@@ -135,98 +49,52 @@ export default function TerminalWebsite() {
 
   const handleCommand = (command: string) => {
     const [cmd, ...args] = command.toLowerCase().split(' ')
-    switch (cmd) {
-      case 'help':
-        addToOutput(Object.entries(COMMANDS).map(([cmd, desc]) => `${cmd}: ${desc}`).join('\n'))
-        break
-      case 'about':
-        addToOutput("I'm a passionate developer who loves creating unique web experiences!")
-        break
-      case 'skills':
-        addToOutput('JavaScript, TypeScript, React, Node.js, Python, and more!')
-        break
-      case 'projects':
-        addToOutput('1. add a cool feature\n2. that uses an api\n3. to show my repos')
-        break
-      case 'socials':
-        addToOutput(
-          <>
-            GitHub: <a href="https://github.com/trixzyy" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">github.com/trixzyy</a>
-            <br />
-            Twitter: <a href="https://twitter.com/trixzydev" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">@trixzydev</a>
-            <br />
-            Discord: <a href="https://discord.com/users/992171799536218142" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">@trixzy</a>
-          </>
-        )
-        break
-      case 'clear':
-      case 'cls':
+    if (cmd in commands) {
+      if (cmd === 'clear') {
         setOutput([])
-        break
-      case 'theme':
+      } else if (cmd === 'theme') {
         const newTheme = args[0] === 'light' ? 'light' : 'dark'
-        setTheme(newTheme)
-        addToOutput(`Theme set to ${newTheme}`)
-        break
-      case 'music':
-        addToOutput(music ? 
+        switchTheme(newTheme)
+        commands[cmd].execute(args, addToOutput)
+      } else if (cmd === 'music') {
+        addToOutput(music ?
           <>
             <a href={spotifyLink || '#'} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
               Now playing: {music}
             </a>
           </>
-           
-           : 'No music playing')
-        break
-      case 'ascii':
+          : 'No music playing')
+      } else if (cmd === 'socials') {
+       addToOutput(
+        <>
+          GitHub: <a href="https://github.com/trixzyy" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">github.com/trixzyy</a>
+          <br />
+          Twitter: <a href="https://twitter.com/trixzydev" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">@trixzydev</a>
+          <br />
+          Discord: <a href="https://discord.com/users/992171799536218142" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">@trixzy</a>
+        </>
+       )
+      }
+      else if (cmd === 'ascii') {
         setShowAscii((prev) => !prev)
         addToOutput(`ASCII art ${showAscii ? 'hidden' : 'shown'}`)
-        break
-      case 'echo':
-        addToOutput(args.join(' '))
-        break
-      case 'time':
-      case 'date':
-        const userTime = new Date();
-        const londonTime = new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' });
-        const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const londonDate = new Date(londonTime);
-        const timeDifference = (londonDate.getTime() - userTime.getTime()) / (1000 * 60 * 60); // difference in hours
-
-        let timeDifferenceMessage = '';
-        if (timeDifference === 0) {
-          timeDifferenceMessage = "We're on the same clock!";
-        } else {
-          const absDifference = Math.abs(timeDifference);
-          const diffText = absDifference === 1 ? 'hour' : 'hours';
-          if (timeDifference > 0) {
-        timeDifferenceMessage = `We're ${absDifference} ${diffText} ahead of you in the UK.`;
-          } else {
-        timeDifferenceMessage = `We're ${absDifference} ${diffText} apart, and you're ahead of us in the UK.`;
-          }
-        }
-
-        addToOutput(`It's currently ${londonTime} for me in the UK.\nYour time: ${userTime.toLocaleString()}\n${timeDifferenceMessage}`);
-        break
-      case 'welcome':
-        addToOutput(
-          <>
-            Welcome to my terminal!
-            <br />
-            My current status is {getDiscordStatusText()} on Discord.
-            <br />
-            Contact: zac@tigerlake.xyz or @trixzy on Discord.
-          </>
-        )
-        break
-      default:
-        addToOutput(`Command not found: ${cmd}. Type 'help' for a list of commands.`)
+      } else if (cmd === 'date') {
+        handleDateCommand()
+      } else if (cmd === 'welcome') {
+        handleWelcomeCommand()
+      } else {
+        commands[cmd].execute(args, addToOutput)
+      }
+    } else {
+      addToOutput(`Command not found: ${cmd}. Type 'help' for a list of commands.`)
     }
   }
 
   const addToOutput = (content: React.ReactNode) => {
     setOutput((prev) => [...prev, content])
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    setTimeout(() => {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }, 0)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -258,38 +126,99 @@ export default function TerminalWebsite() {
   };
 
   const currentLondonTime = () => {
-    return new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' });
+    return currentTime.toLocaleString('en-GB', { timeZone: 'Europe/London', hour12: false });
   };
 
+  const handleDateCommand = () => {
+    const userTime = new Date();
+    const londonTime = new Date(currentTime.toLocaleString('en-GB', { timeZone: 'Europe/London' }));
+    const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const timeDifference = (londonTime.getTime() - userTime.getTime()) / (1000 * 60); // difference in minutes
+
+    let timeDifferenceMessage = '';
+    if (Math.abs(timeDifference) < 1) {
+      timeDifferenceMessage = "We're on the same clock!";
+    } else {
+      const absDifference = Math.abs(timeDifference);
+      const hours = Math.floor(absDifference / 60);
+      const minutes = Math.round(absDifference % 60);
+      const hourText = hours === 1 ? 'hour' : 'hours';
+      const minuteText = minutes === 1 ? 'minute' : 'minutes';
+      const timeText = hours > 0 ? `${hours} ${hourText}` : '';
+      const minuteTextFinal = minutes > 0 ? `${minutes} ${minuteText}` : '';
+      const separator = hours > 0 && minutes > 0 ? ' and ' : '';
+      
+      if (timeDifference > 0) {
+        timeDifferenceMessage = `We're ${timeText}${separator}${minuteTextFinal} ahead of you in the UK.`;
+      } else {
+        timeDifferenceMessage = `We're ${timeText}${separator}${minuteTextFinal} behind you in the UK.`;
+      }
+    }
+
+    addToOutput(`It's currently ${londonTime.toLocaleString('en-GB', { hour12: false })} for me in the UK.\nYour time: ${userTime.toLocaleString(undefined, { hour12: false })}\nYour timezone: ${userTimeZone}\n${timeDifferenceMessage}`);
+  }
+
+  const handleWelcomeCommand = () => {
+    addToOutput(
+      <>
+        Welcome to my terminal!
+        <br />
+        My current status is {getDiscordStatusText()} on Discord.
+        <br />
+        Contact: zac@tigerlake.xyz or @trixzy on Discord.
+      </>
+    )
+  }
+
+  const [currentFrame, setCurrentFrame] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentFrame((prevFrame) => (prevFrame + 1) % ASCII_CAT_FRAMES.length);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-900 text-black dark:text-green-400 font-mono p-4 overflow-hidden">
+    <div className="min-h-screen bg-white dark:bg-gray-900 text-black dark:text-green-400 font-mono p-4 overflow-hidden transition-colors duration-300">
       <div className="max-w-3xl mx-auto">
         {showAscii && (
-          <pre className="text-xs sm:text-sm whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: `${ASCII_CAT}${ASCII_LOGO}` }} />
+          <div className="flex space-x-4">
+            <pre className="text-xs sm:text-sm whitespace-pre-wrap">
+              {ASCII_CAT_FRAMES[currentFrame]}
+            </pre>
+            <pre className="text-xs sm:text-sm whitespace-pre-wrap">
+              {ASCII_LOGO}
+            </pre>
+          </div>
         )}
         <div className="mt-4 space-y-2">
           {output.map((line, index) => (
             <div key={index} className="whitespace-pre-wrap">{line}</div>
           ))}
+          <form onSubmit={handleSubmit} className="flex items-center">
+            <span className="mr-2 text-blue-600 dark:text-blue-400">visitor@tigerlake.xyz:~$</span>
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="flex-grow bg-transparent focus:outline-none text-black dark:text-green-400"
+              autoFocus
+            />
+          </form>
         </div>
-        <form onSubmit={handleSubmit} className="mt-4 flex items-center">
-          <span className="mr-2 text-blue-600">visitor@tigerlake.xyz:~$</span>
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="flex-grow bg-transparent focus:outline-none"
-            autoFocus
-          />
-        </form>
         <div ref={bottomRef} />
       </div>
-      <div className="fixed bottom-0 left-0 right-0 bg-gray-800 text-white p-2 text-center">
-        Now playing: {music || 'Nothing'}
-      </div>
-      <div className="fixed top-0 right-0 p-2 text-xs">
-        London Time: {currentLondonTime()} | Discord Status: {getDiscordStatusText()}
+      <div className="fixed top-0 right-0 p-2 text-xs text-black dark:text-green-400">
+        <div>London Time: {currentLondonTime()} | Discord Status: {getDiscordStatusText()}</div>
+        <div className="mt-1 overflow-hidden">
+          {music && (
+            <div className="whitespace-nowrap animate-marquee">
+              Now playing: {music}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
