@@ -6,6 +6,7 @@ interface DiscordStatus {
     song: string;
     artist: string;
     track_id: string;
+    album_art_url: string;
   };
 }
 
@@ -15,6 +16,7 @@ export const useDiscordStatus = () => {
   const [discordStatus, setDiscordStatus] = useState<DiscordStatus | null>(null);
   const [music, setMusic] = useState<string | null>(null);
   const [spotifyLink, setSpotifyLink] = useState<string | null>(null);
+  const [albumCover, setAlbumCover] = useState<string | null>(null);
 
   useEffect(() => {
     const socket = new WebSocket('wss://api.lanyard.rest/socket');
@@ -35,6 +37,7 @@ export const useDiscordStatus = () => {
         if (data.d.spotify) {
           setMusic(`${data.d.spotify.song} - ${data.d.spotify.artist}`);
           setSpotifyLink(`https://open.spotify.com/track/${data.d.spotify.track_id}`);
+          setAlbumCover(data.d.spotify.album_art_url);
         } else {
           setMusic(null);
         }
@@ -44,5 +47,5 @@ export const useDiscordStatus = () => {
     return () => socket.close();
   }, []);
 
-  return { discordStatus, music, spotifyLink };
+  return { discordStatus, music, spotifyLink, albumCover };
 };
