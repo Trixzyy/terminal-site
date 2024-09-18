@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 
 export default function TerminalWebsite() {
-  const { discordStatus, music, spotifyLink, albumArt, startTimestamp, endTimestamp } = useDiscordStatus()
+  const { username, avatar, discordStatus, music, spotifyLink, albumArt, startTimestamp, endTimestamp } = useDiscordStatus()
   const [input, setInput] = useState('')
   const [output, setOutput] = useState<React.ReactNode[]>([])
   const [currentFrame, setCurrentFrame] = useState(0)
@@ -162,12 +162,12 @@ export default function TerminalWebsite() {
             <CardContent>
               <div className="flex items-center space-x-4">
                 <img
-                  src={discordStatus?.avatar_url || '/placeholder.svg'}
+                  src={avatar || '/placeholder.svg'}
                   alt="Discord Avatar"
                   className="w-16 h-16 rounded-full"
                 />
                 <div>
-                  <p className="font-semibold">{discordStatus?.username || 'Unknown User'}</p>
+                  <p className="font-semibold">{username || 'Unknown User'}</p>
                   <div className="flex items-center space-x-2">
                     <div className={`w-3 h-3 rounded-full ${
                       discordStatus?.discord_status === 'online' ? 'bg-green-500' :
