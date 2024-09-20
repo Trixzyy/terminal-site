@@ -59,7 +59,7 @@ export const useDiscordStatus = () => {
         setDiscordStatus(data.d);
         const discordUser = data.d.discord_user;
         setUsername(discordUser.username);
-        setAvatar(`https://cdn.discordapp.com/avatars/${DISCORD_ID}/${discordUser.avatar}?size=4096`);
+        setAvatar(`https://cdn.discordapp.com/avatars/${DISCORD_ID}/${discordUser.avatar}?size=256`);
 
         if (data.d.spotify) {
           setMusic(`${data.d.spotify.song} - ${data.d.spotify.artist}`);

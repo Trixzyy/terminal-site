@@ -19,6 +19,11 @@ const [githubRepos, setGithubRepos] = useState([])
 const [progress, setProgress] = useState(0)
 const { theme, switchTheme } = useThemeSwitcher()
 const terminalRef = useRef<HTMLDivElement>(null)
+const [dateString, setDateString] = useState('');
+
+useEffect(() => {
+  setDateString(new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' }));
+}, []);
 
 useEffect(() => {
   const interval = setInterval(() => {
@@ -47,9 +52,13 @@ useEffect(() => {
 
 const fetchGithubRepos = async () => {
   try {
-    const response = await fetch('https://api.github.com/users/trixzyy/repos?sort=stars&per_page=4')
+    const response = await fetch('https://api.github.com/users/trixzyy/repos?sort=stars&per_page=100')
     const data = await response.json()
-    setGithubRepos(data)
+    const topRepos = data
+      .filter((repo: any) => !repo.fork)
+      .sort((a:any, b:any) => b.stargazers_count - a.stargazers_count)
+      .slice(0, 4)
+    setGithubRepos(topRepos)
   } catch (error) {
     console.error('Error fetching GitHub repos:', error)
   }
@@ -125,10 +134,10 @@ return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-3 md:justify-start md:space-x-10">
           <div className="flex justify-start lg:w-0 lg:flex-1">
-            <span className="text-xl font-bold">TigerLake Terminal</span>
+            <span className="text-xl font-bold">TigerLake</span>
           </div>
           <div className="flex items-center justify-end md:flex-1 lg:w-0">
-            <span className="mr-4">{new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' })}</span>
+            <span className="hidden md:block mr-4">{dateString}</span>
             <div className="flex items-center space-x-2">
               <div className={`w-3 h-3 rounded-full ${
                 discordStatus?.discord_status === 'online' ? 'bg-green-500' :
@@ -136,7 +145,6 @@ return (
                 discordStatus?.discord_status === 'dnd' ? 'bg-red-500' :
                 'bg-gray-500'
               }`}></div>
-              <span>{discordStatus?.discord_status || 'Offline'}</span>
             </div>
             <button
               onClick={() => switchTheme(theme === 'dark' ? 'light' : 'dark')}
@@ -152,17 +160,17 @@ return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <motion.div variants={itemVariants} className="lg:col-span-2">
-          <Card>
+        <Card>
             <CardHeader>
               <CardTitle>Terminal</CardTitle>
             </CardHeader>
             <CardContent>
-              <div ref={terminalRef} className="h-[400px] overflow-y-auto mb-4 bg-white dark:bg-gray-900 p-4 rounded-lg">
+              <div ref={terminalRef} className="h-[400px] overflow-y-auto mb-4 bg-gray-100 dark:bg-gray-800 p-4 rounded-lg font-mono">
                 <div className="flex space-x-4 mb-4">
-                  <pre className="text-xs sm:text-sm whitespace-pre-wrap mb-4">
+                  <pre className="text-xs sm:text-sm whitespace-pre-wrap hidden md:block">
                     {ASCII_CAT_FRAMES[currentFrame]}
                   </pre>
-                  <pre className="text-xs sm:text-sm whitespace-pre-wrap mb-4">
+                  <pre className="hidden md:block text-xs sm:text-sm whitespace-pre-wrap">
                     {ASCII_LOGO}
                   </pre>
                 </div>
@@ -171,17 +179,17 @@ return (
                     <div key={index} className="whitespace-pre-wrap">{line}</div>
                   ))}
                 </div>
+                <form onSubmit={handleSubmit} className="flex items-center mt-2">
+                  <span className="mr-2 text-blue-600 dark:text-blue-400">visitor@tigerlake.xyz:~$</span>
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    className="flex-grow bg-transparent focus:outline-none"
+                    autoFocus
+                  />
+                </form>
               </div>
-              <form onSubmit={handleSubmit} className="flex items-center">
-                <span className="mr-2 text-blue-600 dark:text-blue-400">visitor@tigerlake.xyz:~$</span>
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  className="flex-grow bg-transparent focus:outline-none"
-                  autoFocus
-                />
-              </form>
             </CardContent>
           </Card>
         </motion.div>
@@ -194,13 +202,17 @@ return (
               </CardHeader>
               <CardContent>
                 <div className="flex items-center space-x-4">
-                  <img
-                    src={avatar || '/placeholder.svg'}
-                    alt="Discord Avatar"
-                    className="w-16 h-16 rounded-full"
-                  />
+                  {avatar ? (
+                    <img
+                      src={avatar}
+                      alt="Discord Avatar"
+                      className="w-16 h-16 rounded-full"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 bg-gray-300 rounded-full animate-pulse"></div>
+                  )}
                   <div>
-                    <p className="font-semibold">{discordStatus?.username || 'Unknown User'}</p>
+                    <p className="font-semibold">{discordStatus?.username || 'Trixzy'}</p>
                     <div className="flex items-center space-x-2">
                       <div className={`w-3 h-3 rounded-full ${
                         discordStatus?.discord_status === 'online' ? 'bg-green-500' :
@@ -208,7 +220,7 @@ return (
                         discordStatus?.discord_status === 'dnd' ? 'bg-red-500' :
                         'bg-gray-500'
                       }`}></div>
-                      <span>{discordStatus?.discord_status || 'Offline'}</span>
+                      <span>{discordStatus?.discord_status || 'Loading...'}</span>
                     </div>
                     {discordStatus?.activities && discordStatus.activities[0] && (
                       <p className="text-sm mt-2">
@@ -238,7 +250,7 @@ return (
                         </a>
                       </div>
                     </div>
-                    <Progress value={progress} className="w-full" />
+                    <Progress value={progress} />
                   </div>
                 ) : (
                   <p>No music playing</p>
@@ -249,29 +261,29 @@ return (
         </div>
 
         <motion.div variants={itemVariants} className="lg:col-span-3">
-          <Card>
+        <Card>
             <CardHeader>
               <CardTitle>GitHub Repositories</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {githubRepos.map((repo: any) => (
-                  <motion.a
+                  <a
                     key={repo.id}
                     href={repo.html_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block border p-4 rounded-lg hover:shadow-md transition-shadow duration-300"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                    className="block border p-4 rounded-lg hover:shadow-md transition-shadow duration-300 dark:hover:shadow-lg"
                   >
                     <h3 className="font-semibold">{repo.name}</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">{repo.description}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                      {repo.description ? (repo.description.length > 75 ? repo.description.substring(0, 75) + '...' : repo.description) : 'No description'}
+                    </p>
                     <div className="mt-2 flex items-center space-x-2">
                       <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded">{repo.language}</span>
                       <span className="text-xs">⭐ {repo.stargazers_count}</span>
                     </div>
-                  </motion.a>
+                  </a>
                 ))}
               </div>
             </CardContent>
@@ -302,8 +314,7 @@ return (
                 <motion.a
                   href="https://twitter.com/trixzydev"
                   target="_blank"
-                  rel="noopener nor
-eferrer"
+                  rel="noopener noreferrer"
                   className="flex items-center p-4 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors duration-300"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
@@ -339,15 +350,11 @@ eferrer"
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="flex flex-col md:flex-row justify-between items-center">
           <p className="text-center md:text-left mb-4 md:mb-0">
-            © 2023 TigerLake. All rights reserved.
+            © {new Date().getFullYear()} TigerLake. All rights reserved.
           </p>
-          <div className="flex items-center space-x-4">
-            <CircleCheck className="text-green-500" size={24} />
-            <span>All systems operational</span>
-          </div>
-        </div>
-        <div className="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">
+          <div className="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">
           Built with React, Next.js, and a lot of ☕
+        </div>
         </div>
       </div>
     </footer>
