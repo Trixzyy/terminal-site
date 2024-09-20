@@ -1,7 +1,7 @@
 import React from 'react';
 import { GitFork, Star, Sun, Moon } from 'lucide-react';
 import { zoneMessages } from '@/utils/zoneMessages';
-
+import { useThemeSwitcher } from '@/hooks/useThemeSwitcher'
 
 export interface Command {
   description: string;
@@ -16,12 +16,16 @@ const commands: CommandMap = {
   help: {
     description: 'Get a list of all available commands',
     execute: (_, addToOutput) => {
+      const uniqueCommands = Object.keys(commands).filter(
+        (cmd) => !Object.keys(aliases).includes(cmd)
+      );
+
       addToOutput(
         <div className="space-y-1">
           <p className="font-bold">Available commands:</p>
-          {Object.entries(commands).map(([cmd, { description }]) => (
+          {uniqueCommands.map((cmd) => (
             <p key={cmd}>
-              <span className="text-blue-600 dark:text-blue-400">{cmd}</span>: {description}
+              <span className="text-blue-600 dark:text-blue-400">{cmd}</span>: {commands[cmd].description}
             </p>
           ))}
         </div>
@@ -121,8 +125,17 @@ const commands: CommandMap = {
   theme: {
     description: 'Change terminal theme (light/dark) or toggle if no argument is provided',
     execute: (args, addToOutput, state) => {
-      
-      const newTheme = args[0] === 'light' ? 'light' : 'dark';
+      const { theme, switchTheme } = useThemeSwitcher()
+      const currentTheme = theme
+      let newTheme;
+
+      if (args.length === 0) {
+        newTheme = currentTheme === 'light' ? 'dark' : 'light';
+      } else {
+        newTheme = args[0] === 'light' ? 'light' : 'dark';
+      }
+
+      switchTheme(newTheme);
       addToOutput(
         <p>
           Theme set to {newTheme} <span>{newTheme === 'dark' ? <Moon size={16} /> : <Sun size={16} />}</span>
@@ -130,12 +143,9 @@ const commands: CommandMap = {
       );
     },
   },
-  
-  
-  
   music: {
     description: 'Display currently playing music',
-    execute: (_, addToOutput, state) => {
+    execute: (_: any, addToOutput: (output: JSX.Element) => void, state: { music?: string; albumArt?: string; spotifyLink?: string }) => {
       if (state.music) {
         addToOutput(
           <div className="space-y-2">
@@ -157,30 +167,30 @@ const commands: CommandMap = {
     description: 'Display current date and time',
     execute: (_, addToOutput) => {
       const now = new Date();
-
-      // Get local time and London time as formatted strings
-      const londonTime = now.toLocaleString('en-GB', { timeZone: 'Europe/London' });
       const localTime = now.toLocaleString();
+      const londonTime = now.toLocaleString('en-GB', { timeZone: 'Europe/London' });
 
-      // Get the UTC timestamp for both London and local time zones
-      const londonDate = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/London' }));
-      const localDate = new Date(now.toLocaleString());
+      if (localTime === londonTime) {
+        const funnyMessage = zoneMessages[Math.floor(Math.random() * zoneMessages.length)];
+        addToOutput(
+          <div>
+            <p>Current time: {localTime}</p>
+            <p>{funnyMessage}</p>
+          </div>
+        );
+      } else {
+        const timeDiff = Math.abs(now.getTime() - new Date(londonTime).getTime());
+        const hoursDiff = Math.floor(timeDiff / (1000 * 60 * 60));
+        const minutesDiff = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
 
-      // Calculate the time difference in hours
-      const timeDifference = (localDate.getTime() - londonDate.getTime()) / (1000 * 60 * 60); // Difference in hours
-
-      // Message for time difference
-      const timeDifferenceMessage = timeDifference === 0
-        ? `${zoneMessages[Math.floor(Math.random() * zoneMessages.length)]}`
-        : `The time difference is ${Math.abs(timeDifference)} hour(s).`;
-
-      addToOutput(
-        <div>
-          <p>Current date and time in London: {londonTime}</p>
-          <p>Your local date and time: {localTime}</p>
-          <p>{timeDifferenceMessage}</p>
-        </div>
-      );
+        addToOutput(
+          <div>
+            <p>Your local time: {localTime}</p>
+            <p>Time in London: {londonTime}</p>
+            <p>Time difference: {hoursDiff} hours and {minutesDiff} minutes</p>
+          </div>
+        );
+      }
     },
   },
   welcome: {
@@ -193,6 +203,36 @@ const commands: CommandMap = {
           <p>Current Discord status: {state.discordStatus?.discord_status || 'Loading...'}</p>
         </div>
       );
+    },
+  },
+  weather: {
+    description: 'Get current weather information',
+    execute: async (args, addToOutput) => {
+      const city = args.join(' ') || 'London';
+      const apiKey = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY;
+      const url = `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=metric`;
+
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.cod === 200) {
+          addToOutput(
+            <div className="space-y-2">
+              <p className="font-bold">Weather in {data.name}, {data.sys.country}</p>
+              <p>Temperature: {Math.round(data.main.temp)}°C</p>
+              <p>Feels like: {Math.round(data.main.feels_like)}°C</p>
+              <p>Description: {data.weather[0].description}</p>
+              <p>Humidity: {data.main.humidity}%</p>
+              <p>Wind speed: {data.wind.speed} m/s</p>
+            </div>
+          );
+        } else {
+          addToOutput(<p>Error: Unable to fetch weather data for {city}.</p>);
+        }
+      } catch (error) {
+        addToOutput(<p>Error: Unable to fetch weather data. Please try again later.</p>);
+      }
     },
   },
 };

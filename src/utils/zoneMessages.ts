@@ -5,5 +5,6 @@ export const zoneMessages: string[] = [
     "I guess we're both on the same wavelength... or time zone.",
     "Well, at least we're not both late.",
     "Is this a cosmic coincidence, or are we just destined to be on the same time?",
-    "Maybe we're secretly twins from a parallel universe."
+    "No time like the present, especially when it's the same for both of us!",
+    "Same time, same place... well, at least the same time!",
 ];

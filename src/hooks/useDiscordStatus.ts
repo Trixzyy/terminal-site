@@ -42,7 +42,7 @@ export const useDiscordStatus = () => {
   const [activities, setActivities] = useState<Activity[]>([]);
 
   useEffect(() => {
-    const socket = new WebSocket('wss://api.lanyard.rest/socket');
+    const socket = new WebSocket('wss://api.lazerjay.dev/api/lanyard/socket/');
 
     socket.addEventListener('open', () => {
       socket.send(JSON.stringify({
