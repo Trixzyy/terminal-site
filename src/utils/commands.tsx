@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sun, Moon } from 'lucide-react';
+import { GitFork, Star, Sun, Moon, } from 'lucide-react';
 import { zoneMessages } from '@/utils/zoneMessages';
 
 export interface Command {
@@ -46,8 +46,8 @@ const commands: CommandMap = {
           <li>Node.js</li>
           <li>Python</li>
           <li>And more!</li>
-        </ul>
-      );
+        </ul
+        >)
     },
   },
   projects: {
@@ -57,16 +57,28 @@ const commands: CommandMap = {
         <div className="space-y-2">
           <p className="font-bold">My top GitHub repositories:</p>
           {state.githubRepos.map((repo: any) => (
-            <p key={repo.id}>
-              <a 
-                href={repo.html_url} 
-                target="_blank" 
+            <div key={repo.id} className="flex items-center space-x-2 space-y-2">
+              <a
+                href={repo.html_url}
+                target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-600 dark:text-blue-400 hover:underline"
+                className="text-green-600 dark:text-green-400 hover:underline"
+                style={{ minWidth: '180px', display: 'inline-block' }}
               >
                 {repo.name}
-              </a>: {repo.description || 'No description'}
-            </p>
+              </a>
+              <span className="text-gray-500 dark:text-gray-400">
+                {repo.description || 'No description'}
+              </span>
+              <div className="flex items-center space-x-1">
+                <Star size={16} className="text-yellow-500" />
+                <span>{repo.stargazers_count}</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <GitFork size={16} className="text-gray-500" />
+                <span>{repo.forks_count}</span>
+              </div>
+            </div>
           ))}
         </div>
       );
@@ -141,23 +153,23 @@ const commands: CommandMap = {
     description: 'Display current date and time',
     execute: (_, addToOutput) => {
       const now = new Date();
-  
+
       // Get local time and London time as formatted strings
       const londonTime = now.toLocaleString('en-GB', { timeZone: 'Europe/London' });
       const localTime = now.toLocaleString();
-  
+
       // Get the UTC timestamp for both London and local time zones
       const londonDate = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/London' }));
       const localDate = new Date(now.toLocaleString());
-  
+
       // Calculate the time difference in hours
       const timeDifference = (localDate.getTime() - londonDate.getTime()) / (1000 * 60 * 60); // Difference in hours
-  
+
       // Message for time difference
       const timeDifferenceMessage = timeDifference === 0
         ? `${zoneMessages[Math.floor(Math.random() * zoneMessages.length)]}`
         : `The time difference is ${Math.abs(timeDifference)} hour(s).`;
-  
+
       addToOutput(
         <div>
           <p>Current date and time in London: {londonTime}</p>
@@ -167,12 +179,12 @@ const commands: CommandMap = {
       );
     },
   },
-  
-  
-      
-      welcome: {
-      description: 'Display welcome message',
-      execute: (_, addToOutput, state) => {
+
+
+
+  welcome: {
+    description: 'Display welcome message',
+    execute: (_, addToOutput, state) => {
       addToOutput(
         <div className="space-y-2">
           <p>Welcome to TigerLake's terminal!</p>

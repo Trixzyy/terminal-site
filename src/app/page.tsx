@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import React, { useState, useEffect, useRef } from 'react'
 import { useThemeSwitcher } from '@/hooks/useThemeSwitcher'
@@ -11,130 +11,159 @@ import { Progress } from "@/components/ui/progress"
 import { motion } from 'framer-motion'
 
 export default function TerminalWebsite() {
-const { username, avatar, discordStatus, music, spotifyLink, albumArt, startTimestamp, endTimestamp } = useDiscordStatus()
-const [input, setInput] = useState('')
-const [output, setOutput] = useState<React.ReactNode[]>([])
-const [currentFrame, setCurrentFrame] = useState(0)
-const [githubRepos, setGithubRepos] = useState([])
-const [progress, setProgress] = useState(0)
-const { theme, switchTheme } = useThemeSwitcher()
-const terminalRef = useRef<HTMLDivElement>(null)
-const [dateString, setDateString] = useState('');
+  const { username, avatar, discordStatus, music, spotifyLink, albumArt, startTimestamp, endTimestamp } = useDiscordStatus()
+  const [input, setInput] = useState('')
+  const [output, setOutput] = useState<React.ReactNode[]>([])
+  const [currentFrame, setCurrentFrame] = useState(0)
+  const [githubRepos, setGithubRepos] = useState([])
+  const [progress, setProgress] = useState(0)
+  const { theme, switchTheme } = useThemeSwitcher()
+  const terminalRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [dateString, setDateString] = useState('');
+  const [commandHistory, setCommandHistory] = useState<string[]>([])
+  const [historyIndex, setHistoryIndex] = useState(-1)
 
-useEffect(() => {
-  const updateDate = () => {
-    setDateString(new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' }));
-  };
+  useEffect(() => {
+    const updateDate = () => {
+      setDateString(new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' }));
+    };
 
-  updateDate(); // Set initial date
-  const intervalId = setInterval(updateDate, 1000); // Update every second
+    updateDate();
+    const intervalId = setInterval(updateDate, 1000);
 
-  return () => clearInterval(intervalId); // Cleanup on unmount
-}, []);
+    return () => clearInterval(intervalId);
+  }, []);
 
-useEffect(() => {
-  const interval = setInterval(() => {
-    setCurrentFrame((prevFrame) => (prevFrame + 1) % ASCII_CAT_FRAMES.length)
-  }, 1000)
-  return () => clearInterval(interval)
-}, [])
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentFrame((prevFrame) => (prevFrame + 1) % ASCII_CAT_FRAMES.length)
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [])
 
-useEffect(() => {
-  fetchGithubRepos()
-}, [])
+  useEffect(() => {
+    fetchGithubRepos()
+  }, [])
 
-useEffect(() => {
-  if (startTimestamp && endTimestamp) {
-    const updateProgress = () => {
-      const now = Date.now()
-      const total = endTimestamp - startTimestamp
-      const current = now - startTimestamp
-      setProgress(Math.min((current / total) * 100, 100))
+  useEffect(() => {
+    if (startTimestamp && endTimestamp) {
+      const updateProgress = () => {
+        const now = Date.now()
+        const total = endTimestamp - startTimestamp
+        const current = now - startTimestamp
+        setProgress(Math.min((current / total) * 100, 100))
+      }
+
+      const intervalId = setInterval(updateProgress, 1000)
+      return () => clearInterval(intervalId)
     }
+  }, [startTimestamp, endTimestamp])
 
-    const intervalId = setInterval(updateProgress, 1000)
-    return () => clearInterval(intervalId)
-  }
-}, [startTimestamp, endTimestamp])
-
-const fetchGithubRepos = async () => {
-  try {
-    const response = await fetch('https://api.github.com/users/trixzyy/repos?sort=stars&per_page=100')
-    const data = await response.json()
-    const topRepos = data
-      .filter((repo: any) => !repo.fork)
-      .sort((a:any, b:any) => b.stargazers_count - a.stargazers_count)
-      .slice(0, 4)
-    setGithubRepos(topRepos)
-  } catch (error) {
-    console.error('Error fetching GitHub repos:', error)
-  }
-}
-
-const handleSubmit = (e: React.FormEvent) => {
-  e.preventDefault()
-  const trimmedInput = input.trim()
-  if (trimmedInput) {
-    addToOutput(
-      <span>
-        <span className='text-blue-600 dark:text-blue-400'>visitor@tigerlake.xyz:~$ </span>
-        <span>{trimmedInput}</span>
-      </span>
-    )
-    handleCommand(trimmedInput)
-  }
-  setInput('')
-}
-
-const handleCommand = (command: string) => {
-  const [cmd, ...args] = command.toLowerCase().split(' ')
-  if (cmd in commands) {
-    commands[cmd].execute(args, addToOutput, {
-      setOutput,
-      switchTheme,
-      githubRepos,
-      music,
-      albumArt,
-      spotifyLink,
-      discordStatus,
-    })
-  } else {
-    addToOutput(<p>Command not found: {cmd}. Type 'help' for a list of commands.</p>)
-  }
-}
-
-const addToOutput = (content: React.ReactNode) => {
-  setOutput((prev) => [...prev, content])
-  if (terminalRef.current) {
-    terminalRef.current.scrollTop = terminalRef.current.scrollHeight
-  }
-}
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1
+  const fetchGithubRepos = async () => {
+    try {
+      const response = await fetch('https://api.github.com/users/trixzyy/repos?sort=stars&per_page=100')
+      const data = await response.json()
+      const topRepos = data
+        .filter((repo: any) => !repo.fork)
+        .sort((a:any, b:any) => b.stargazers_count - a.stargazers_count)
+        .slice(0, 4)
+      setGithubRepos(topRepos)
+    } catch (error) {
+      console.error('Error fetching GitHub repos:', error)
     }
   }
-}
 
-const itemVariants = {
-  hidden: { y: 20, opacity: 0 },
-  visible: {
-    y: 0,
-    opacity: 1
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmedInput = input.trim()
+    if (trimmedInput) {
+      addToOutput(
+        <span>
+          <span className='text-blue-600 dark:text-blue-400'>visitor@tigerlake.xyz:~$ </span>
+          <span>{trimmedInput}</span>
+        </span>
+      )
+      handleCommand(trimmedInput)
+      setCommandHistory(prev => [...prev, trimmedInput])
+      setHistoryIndex(-1)
+    }
+    setInput('')
   }
-}
 
-return (
-  <motion.div 
-    className="min-h-screen bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 font-mono transition-colors duration-300"
-    initial="hidden"
-    animate="visible"
-    variants={containerVariants}
-  >
+  const handleCommand = (command: string) => {
+    const [cmd, ...args] = command.toLowerCase().split(' ')
+    if (cmd in commands) {
+      commands[cmd].execute(args, addToOutput, {
+        setOutput,
+        switchTheme,
+        githubRepos,
+        music,
+        albumArt,
+        spotifyLink,
+        discordStatus,
+      })
+    } else {
+      addToOutput(<p>Command not found: {cmd}. Type 'help' for a list of commands.</p>)
+    }
+  }
+
+  const addToOutput = (content: React.ReactNode) => {
+    setOutput((prev) => [...prev, content])
+    if (terminalRef.current) {
+      setTimeout(() => {
+        terminalRef.current?.scrollTo({
+          top: terminalRef.current.scrollHeight,
+          behavior: 'smooth'
+        })
+        inputRef.current?.focus()
+      }, 100)
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setHistoryIndex(prevIndex => {
+        const newIndex = prevIndex < commandHistory.length - 1 ? prevIndex + 1 : prevIndex
+        setInput(commandHistory[commandHistory.length - 1 - newIndex] || '')
+        return newIndex
+      })
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setHistoryIndex(prevIndex => {
+        const newIndex = prevIndex > 0 ? prevIndex - 1 : -1
+        setInput(newIndex === -1 ? '' : commandHistory[commandHistory.length - 1 - newIndex] || '')
+        return newIndex
+      })
+    }
+  }
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  }
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1
+    }
+  }
+
+  return (
+    <motion.div 
+      className="min-h-screen bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 font-mono transition-colors duration-300"
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+    >
     <nav className="sticky top-0 bg-white dark:bg-gray-900 shadow-md z-10 transition-all duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-3 md:justify-start md:space-x-10">
@@ -166,37 +195,39 @@ return (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <motion.div variants={itemVariants} className="lg:col-span-2">
         <Card>
-            <CardHeader>
-              <CardTitle>Terminal</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div ref={terminalRef} className="h-[400px] overflow-y-auto mb-4 bg-gray-100 dark:bg-gray-800 p-4 rounded-lg font-mono">
-                <div className="flex space-x-4 mb-4">
-                  <pre className="text-xs sm:text-sm whitespace-pre-wrap hidden md:block">
-                    {ASCII_CAT_FRAMES[currentFrame]}
-                  </pre>
-                  <pre className="hidden md:block text-xs sm:text-sm whitespace-pre-wrap">
-                    {ASCII_LOGO}
-                  </pre>
+              <CardHeader>
+                <CardTitle>Terminal</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div ref={terminalRef} className="h-[400px] overflow-y-auto mb-4 bg-gray-100 dark:bg-gray-800 p-4 rounded-lg font-mono">
+                  <div className="flex space-x-4 mb-4">
+                    <pre className="text-xs sm:text-sm whitespace-pre-wrap hidden md:block">
+                      {ASCII_CAT_FRAMES[currentFrame]}
+                    </pre>
+                    <pre className="hidden md:block text-xs sm:text-sm whitespace-pre-wrap">
+                      {ASCII_LOGO}
+                    </pre>
+                  </div>
+                  <div className="space-y-2">
+                    {output.map((line, index) => (
+                      <div key={index} className="whitespace-pre-wrap">{line}</div>
+                    ))}
+                  </div>
+                  <form onSubmit={handleSubmit} className="flex items-center mt-2">
+                    <span className="mr-2 text-blue-600 dark:text-blue-400">visitor@tigerlake.xyz:~$</span>
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      className="flex-grow bg-transparent focus:outline-none"
+                      autoFocus
+                    />
+                  </form>
                 </div>
-                <div className="space-y-2">
-                  {output.map((line, index) => (
-                    <div key={index} className="whitespace-pre-wrap">{line}</div>
-                  ))}
-                </div>
-                <form onSubmit={handleSubmit} className="flex items-center mt-2">
-                  <span className="mr-2 text-blue-600 dark:text-blue-400">visitor@tigerlake.xyz:~$</span>
-                  <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    className="flex-grow bg-transparent focus:outline-none"
-                    autoFocus
-                  />
-                </form>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
         </motion.div>
 
         <div className="space-y-6">
