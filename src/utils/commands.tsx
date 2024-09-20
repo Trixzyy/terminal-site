@@ -1,6 +1,7 @@
 import React from 'react';
-import { GitFork, Star, Sun, Moon, } from 'lucide-react';
+import { GitFork, Star, Sun, Moon } from 'lucide-react';
 import { zoneMessages } from '@/utils/zoneMessages';
+
 
 export interface Command {
   description: string;
@@ -46,8 +47,8 @@ const commands: CommandMap = {
           <li>Node.js</li>
           <li>Python</li>
           <li>And more!</li>
-        </ul
-        >)
+        </ul>
+      );
     },
   },
   projects: {
@@ -118,10 +119,10 @@ const commands: CommandMap = {
     },
   },
   theme: {
-    description: 'Change terminal theme (light/dark)',
+    description: 'Change terminal theme (light/dark) or toggle if no argument is provided',
     execute: (args, addToOutput, state) => {
+      
       const newTheme = args[0] === 'light' ? 'light' : 'dark';
-      state.switchTheme(newTheme);
       addToOutput(
         <p>
           Theme set to {newTheme} <span>{newTheme === 'dark' ? <Moon size={16} /> : <Sun size={16} />}</span>
@@ -129,6 +130,9 @@ const commands: CommandMap = {
       );
     },
   },
+  
+  
+  
   music: {
     description: 'Display currently playing music',
     execute: (_, addToOutput, state) => {
@@ -179,9 +183,6 @@ const commands: CommandMap = {
       );
     },
   },
-
-
-
   welcome: {
     description: 'Display welcome message',
     execute: (_, addToOutput, state) => {
@@ -195,5 +196,25 @@ const commands: CommandMap = {
     },
   },
 };
+
+// Aliases for commands
+const aliases: { [key: string]: string } = {
+  repos: 'projects',
+  ls: 'help',
+  info: 'about',
+  tech: 'skills',
+  sm: 'socials',
+  cls: 'clear',
+  light: 'theme',
+  dark: 'theme',
+  np: 'music',
+  time: 'date',
+  hi: 'welcome',
+};
+
+// Merge aliases into commands
+Object.entries(aliases).forEach(([alias, command]) => {
+  commands[alias] = commands[command];
+});
 
 export default commands;
