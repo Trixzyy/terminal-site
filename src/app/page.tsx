@@ -5,7 +5,7 @@ import { useThemeSwitcher } from '@/hooks/useThemeSwitcher'
 import { useDiscordStatus } from '@/hooks/useDiscordStatus'
 import { ASCII_CAT_FRAMES, ASCII_LOGO } from '@/utils/asciiArt'
 import commands from '@/utils/commands'
-import { Music, Sun, Moon, Github, Twitter, Linkedin, Package2Icon, CircleUser, CircleCheck, Calendar } from 'lucide-react'
+import { Sun, Moon, Github, Twitter, CircleUser } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { motion } from 'framer-motion'
@@ -22,7 +22,14 @@ const terminalRef = useRef<HTMLDivElement>(null)
 const [dateString, setDateString] = useState('');
 
 useEffect(() => {
-  setDateString(new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' }));
+  const updateDate = () => {
+    setDateString(new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' }));
+  };
+
+  updateDate(); // Set initial date
+  const intervalId = setInterval(updateDate, 1000); // Update every second
+
+  return () => clearInterval(intervalId); // Cleanup on unmount
 }, []);
 
 useEffect(() => {
@@ -82,19 +89,17 @@ const handleSubmit = (e: React.FormEvent) => {
 const handleCommand = (command: string) => {
   const [cmd, ...args] = command.toLowerCase().split(' ')
   if (cmd in commands) {
-    commands[cmd].execute(args, addToOutput)
-  } else if (cmd === 'socials') {
-    addToOutput(
-      <>
-        GitHub: <a href="https://github.com/trixzyy" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">github.com/trixzyy</a>
-        <br />
-        Twitter: <a href="https://twitter.com/trixzydev" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">@trixzydev</a>
-        <br />
-        Discord: <a href="https://discord.com/users/992171799536218142" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">@trixzy</a>
-      </>
-    )
+    commands[cmd].execute(args, addToOutput, {
+      setOutput,
+      switchTheme,
+      githubRepos,
+      music,
+      albumArt,
+      spotifyLink,
+      discordStatus,
+    })
   } else {
-    addToOutput(`Command not found: ${cmd}. Type 'help' for a list of commands.`)
+    addToOutput(<p>Command not found: {cmd}. Type 'help' for a list of commands.</p>)
   }
 }
 
