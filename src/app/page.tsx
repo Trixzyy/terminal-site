@@ -1,223 +1,202 @@
-"use client"
+"use client";
 
-import React, { useState, useEffect, useRef } from 'react'
-import { useThemeSwitcher } from '@/hooks/useThemeSwitcher';
-import { useDiscordStatus } from '@/hooks/useDiscordStatus';
-import { ASCII_CAT_FRAMES, ASCII_LOGO } from '@/utils/asciiArt';
-import commands from '@/utils/commands';
-import { Music, Sun, Moon } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react'
+import { useThemeSwitcher } from '@/hooks/useThemeSwitcher'
+import { useDiscordStatus } from '@/hooks/useDiscordStatus'
+import { ASCII_CAT_FRAMES, ASCII_LOGO } from '@/utils/asciiArt'
+import commands, { Command } from '@/utils/commands'
+import { Sun, Moon, Github, Twitter, CircleUser } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Progress } from "@/components/ui/progress"
+import { motion } from 'framer-motion'
 
 export default function TerminalWebsite() {
-  const { discordStatus, music, spotifyLink } = useDiscordStatus();
-  const [input, setInput] = useState('');
-  const [output, setOutput] = useState<React.ReactNode[]>([]);
-  const [history, setHistory] = useState<string[]>([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
-  const [showAscii, setShowAscii] = useState(true);
-  const [currentTime, setCurrentTime] = useState(new Date());
-  const [prevDiscordStatus, setPrevDiscordStatus] = useState(discordStatus?.discord_status);
-  const [prevMusic, setPrevMusic] = useState(music);
-
-  const { theme, switchTheme } = useThemeSwitcher();
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const hasWelcomed = useRef(false);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [output]);
+  const { username, avatar, discordStatus, music, spotifyLink, albumArt, startTimestamp, endTimestamp } = useDiscordStatus()
+  const [input, setInput] = useState('')
+  const [output, setOutput] = useState<React.ReactNode[]>([])
+  const [currentFrame, setCurrentFrame] = useState(0)
+  const [githubRepos, setGithubRepos] = useState([])
+  const [progress, setProgress] = useState(0)
+  const { theme, switchTheme } = useThemeSwitcher()
+  const terminalRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [dateString, setDateString] = useState('');
+  const [commandHistory, setCommandHistory] = useState<string[]>([])
+  const [historyIndex, setHistoryIndex] = useState(-1)
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
+    const updateDate = () => {
+      setDateString(new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' }));
+    };
+
+    updateDate();
+    const intervalId = setInterval(updateDate, 1000);
+
+    return () => clearInterval(intervalId);
   }, []);
 
   useEffect(() => {
-    if (prevDiscordStatus !== discordStatus?.discord_status) {
-      setPrevDiscordStatus(discordStatus?.discord_status);
-    }
-  }, [discordStatus]);
+    const interval = setInterval(() => {
+      setCurrentFrame((prevFrame) => (prevFrame + 1) % ASCII_CAT_FRAMES.length)
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [])
 
   useEffect(() => {
-    if (prevMusic !== music) {
-      setPrevMusic(music);
+    fetchGithubRepos()
+  }, [])
+
+  useEffect(() => {
+    if (startTimestamp && endTimestamp) {
+      const updateProgress = () => {
+        const now = Date.now()
+        const total = endTimestamp - startTimestamp
+        const current = now - startTimestamp
+        setProgress(Math.min((current / total) * 100, 100))
+      }
+
+      const intervalId = setInterval(updateProgress, 1000)
+      return () => clearInterval(intervalId)
     }
-  }, [music]);
+  }, [startTimestamp, endTimestamp])
+
+  const fetchGithubRepos = async () => {
+    try {
+      const response = await fetch('https://api.github.com/users/trixzyy/repos?sort=stars&per_page=100')
+      const data = await response.json()
+      const topRepos = data
+        .filter((repo: any) => !repo.fork)
+        .sort((a:any, b:any) => b.stargazers_count - a.stargazers_count)
+        .slice(0, 4)
+      setGithubRepos(topRepos)
+    } catch (error) {
+      console.error('Error fetching GitHub repos:', error)
+    }
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmedInput = input.trim();
+    e.preventDefault()
+    const trimmedInput = input.trim()
     if (trimmedInput) {
       addToOutput(
         <span>
           <span className='text-blue-600 dark:text-blue-400'>visitor@tigerlake.xyz:~$ </span>
           <span>{trimmedInput}</span>
         </span>
-      );
-      handleCommand(trimmedInput);
-      setHistory((prev) => [...prev, trimmedInput]);
-      setHistoryIndex(-1);
+      )
+      handleCommand(trimmedInput)
+      setCommandHistory(prev => [...prev, trimmedInput])
+      setHistoryIndex(-1)
     }
-    setInput('');
-  };
+    setInput('')
+  }
+
+  const commandsWithTheme: { [key: string]: Command } = useMemo(() => {
+    return {
+      ...commands,
+      theme: {
+        ...commands.theme,
+        execute: (args: string[], addToOutput: (content: React.ReactNode) => void) => {
+          const newTheme = args[0] || (theme === 'light' ? 'dark' : 'light');
+          switchTheme(newTheme);
+          addToOutput(
+            <p>
+              Theme set to {newTheme} <span>{newTheme === 'dark' ? '🌛' : '🌞'}</span>
+            </p>
+          );
+        },
+      },
+    };
+  }, [theme, switchTheme]);
 
   const handleCommand = (command: string) => {
-    const [cmd, ...args] = command.toLowerCase().split(' ');
-    if (cmd in commands) {
-      if (cmd === 'clear' || cmd === 'cls') {
-        setOutput([]);
-      } else if (cmd === 'theme') {
-        const newTheme = args[0] === 'light' ? 'light' : 'dark';
-        switchTheme(newTheme);
-        commands[cmd].execute(args, addToOutput);
-      } else if (cmd === 'music') {
-        addToOutput(music ?
-          <>
-            <a href={spotifyLink || '#'} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
-              Now playing: {music}
-            </a>
-          </>
-          : 'No music playing');
-      } else if (cmd === 'socials') {
-        addToOutput(
-          <>
-            GitHub: <a href="https://github.com/trixzyy" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">github.com/trixzyy</a>
-            <br />
-            Twitter: <a href="https://twitter.com/trixzydev" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">@trixzydev</a>
-            <br />
-            Discord: <a href="https://discord.com/users/992171799536218142" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">@trixzy</a>
-          </>
-        );
-      } else if (cmd === 'ascii') {
-        setShowAscii((prev) => !prev);
-        addToOutput(`ASCII art ${showAscii ? 'hidden' : 'shown'}`);
-      } else if (cmd === 'date') {
-        handleDateCommand();
-      } else if (cmd === 'welcome') {
-        handleWelcomeCommand();
-      } else {
-        commands[cmd].execute(args, addToOutput);
-      }
+    const [cmd, ...args] = command.toLowerCase().split(' ')
+    if (cmd in commandsWithTheme) {
+      commandsWithTheme[cmd].execute(args, addToOutput, {
+        setOutput,
+        switchTheme,
+        githubRepos,
+        music,
+        albumArt,
+        spotifyLink,
+        discordStatus,
+      })
     } else {
-      addToOutput(`Command not found: ${cmd}. Type 'help' for a list of commands.`);
+      addToOutput(<p>Command not found: {cmd}. Type 'help' for a list of commands.</p>)
     }
-  };
+  }
 
   const addToOutput = (content: React.ReactNode) => {
-    setOutput((prev) => [...prev, content]);
-    setTimeout(() => {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 0);
-  };
+    setOutput((prev) => [...prev, content])
+    if (terminalRef.current) {
+      setTimeout(() => {
+        terminalRef.current?.scrollTo({
+          top: terminalRef.current.scrollHeight,
+          behavior: 'smooth'
+        })
+        inputRef.current?.focus()
+      }, 100)
+    }
+  }
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setHistoryIndex((prev) => {
-        const newIndex = Math.min(prev + 1, history.length - 1);
-        setInput(history[history.length - 1 - newIndex] || '');
-        return newIndex;
-      });
+      e.preventDefault()
+      setHistoryIndex(prevIndex => {
+        const newIndex = prevIndex < commandHistory.length - 1 ? prevIndex + 1 : prevIndex
+        setInput(commandHistory[commandHistory.length - 1 - newIndex] || '')
+        return newIndex
+      })
     } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setHistoryIndex((prev) => {
-        const newIndex = Math.max(prev - 1, -1);
-        setInput(newIndex === -1 ? '' : history[history.length - 1 - newIndex]);
-        return newIndex;
-      });
+      e.preventDefault()
+      setHistoryIndex(prevIndex => {
+        const newIndex = prevIndex > 0 ? prevIndex - 1 : -1
+        setInput(newIndex === -1 ? '' : commandHistory[commandHistory.length - 1 - newIndex] || '')
+        return newIndex
+      })
     }
-  };
+  }
 
-  const getDiscordStatusText = () => {
-    switch (discordStatus?.discord_status) {
-      case 'offline': return 'Offline';
-      case 'online': return 'Online';
-      case 'idle': return 'Idle';
-      case 'dnd': return 'Do Not Disturb';
-      default: return 'Loading...';
-    }
-  };
-
-  const getDiscordStatusColor = () => {
-    switch (discordStatus?.discord_status) {
-      case 'offline': return 'bg-gray-500';
-      case 'online': return 'bg-green-500';
-      case 'idle': return 'bg-yellow-500';
-      case 'dnd': return 'bg-red-500';
-      default: return 'bg-gray-500';
-    }
-  };
-
-  const currentLondonTime = () => {
-    return currentTime.toLocaleString('en-GB', { timeZone: 'Europe/London', hour12: false });
-  };
-
-  const handleDateCommand = () => {
-    const userTime = new Date();
-    const londonTime = new Date(currentTime.toLocaleString('en-GB', { timeZone: 'Europe/London' }));
-    const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const timeDifference = (londonTime.getTime() - userTime.getTime()) / (1000 * 60); // difference in minutes
-
-    let timeDifferenceMessage = '';
-    if (Math.abs(timeDifference) < 1) {
-      timeDifferenceMessage = "We're on the same clock!";
-    } else {
-      const absDifference = Math.abs(timeDifference);
-      const hours = Math.floor(absDifference / 60);
-      const minutes = Math.round(absDifference % 60);
-      const hourText = hours === 1 ? 'hour' : 'hours';
-      const minuteText = minutes === 1 ? 'minute' : 'minutes';
-      const timeText = hours > 0 ? `${hours} ${hourText}` : '';
-      const minuteTextFinal = minutes > 0 ? `${minutes} ${minuteText}` : '';
-      const separator = hours > 0 && minutes > 0 ? ' and ' : '';
-
-      if (timeDifference > 0) {
-        timeDifferenceMessage = `We're ${timeText}${separator}${minuteTextFinal} ahead of you in the UK.`;
-      } else {
-        timeDifferenceMessage = `We're ${timeText}${separator}${minuteTextFinal} behind you in the UK.`;
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
       }
     }
+  }
 
-    addToOutput(`It's currently ${londonTime.toLocaleString('en-GB', { hour12: false })} for me in the UK.\nYour time: ${userTime.toLocaleString(undefined, { hour12: false })}\nYour timezone: ${userTimeZone}\n${timeDifferenceMessage}`);
-  };
-
-  const handleWelcomeCommand = () => {
-    addToOutput(
-      <>
-        Welcome to my terminal!
-        <br />
-        My current status is {getDiscordStatusText()} on Discord.
-        <br />
-        Contact: zac@tigerlake.xyz or @trixzy on Discord.
-      </>
-    );
-  };
-
-  const [currentFrame, setCurrentFrame] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentFrame((prevFrame) => (prevFrame + 1) % ASCII_CAT_FRAMES.length);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 font-mono overflow-hidden transition-colors duration-300">
-      <nav className="sticky top-0 bg-white dark:bg-gray-800 shadow-md z-10 transition-all duration-300">
+    <motion.div 
+      className="min-h-screen bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 font-mono transition-colors duration-300"
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+    >
+      <nav className="sticky top-0 bg-white dark:bg-gray-900 shadow-md z-10 transition-all duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-3 md:justify-start md:space-x-10">
             <div className="flex justify-start lg:w-0 lg:flex-1">
               <span className="text-xl font-bold">TigerLake</span>
             </div>
             <div className="flex items-center justify-end md:flex-1 lg:w-0">
-              <span className="mr-4">{currentLondonTime()}</span>
+              <span className="hidden md:block mr-4">{dateString}</span>
               <div className="flex items-center space-x-2">
-                <div className={`w-3 h-3 rounded-full ${getDiscordStatusColor()} transition-colors duration-300`}></div>
-                <span className={`transition-all duration-300 ${prevDiscordStatus !== discordStatus?.discord_status ? 'animate-pulse' : ''}`}>
-                  {getDiscordStatusText()}
-                </span>
+                <div className={`w-3 h-3 rounded-full ${
+                  discordStatus?.discord_status === 'online' ? 'bg-green-500' :
+                  discordStatus?.discord_status === 'idle' ? 'bg-yellow-500' :
+                  discordStatus?.discord_status === 'dnd' ? 'bg-red-500' :
+                  'bg-gray-500'
+                }`}></div>
               </div>
               <button
                 onClick={() => switchTheme(theme === 'dark' ? 'light' : 'dark')}
@@ -230,55 +209,209 @@ export default function TerminalWebsite() {
         </div>
       </nav>
 
-      {music && (
-        <div className="bg-blue-100 dark:bg-blue-900 p-2 transition-all duration-300">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center space-x-2">
-            <Music size={16} className={`${prevMusic !== music ? 'animate-bounce' : ''}`} />
-            <span className="mr-2">Now playing:</span>
-            <div className="overflow-hidden whitespace-nowrap flex-1">
-              <div className={`inline-block ${music.length > 40 ? 'animate-marquee' : ''}`}>
-                <a href={spotifyLink || '#'} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">
-                  {music}
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <motion.div variants={itemVariants} className="lg:col-span-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Terminal</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div ref={terminalRef} className="h-[400px] overflow-y-auto mb-4 bg-gray-100 dark:bg-gray-800 p-4 rounded-lg font-mono">
+                  <div className="flex space-x-4 mb-4">
+                    <pre className="text-xs sm:text-sm whitespace-pre-wrap hidden md:block">
+                      {ASCII_CAT_FRAMES[currentFrame]}
+                    </pre>
+                    <pre className="hidden md:block text-xs sm:text-sm whitespace-pre-wrap">
+                      {ASCII_LOGO}
+                    </pre>
+                  </div>
+                  <div className="space-y-2">
+                    {output.map((line, index) => (
+                      <div key={index} className="whitespace-pre-wrap">{line}</div>
+                    ))}
+                  </div>
+                  <form onSubmit={handleSubmit} className="flex items-center mt-2">
+                    <span className="mr-2 text-blue-600 dark:text-blue-400">visitor@tigerlake.xyz:~$</span>
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      className="flex-grow bg-transparent focus:outline-none"
+                      autoFocus
+                    />
+                  </form>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
 
-      <main className="max-w-4xl mx-auto mt-8 px-4 sm:px-6 lg:px-8">
-        <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden transition-all duration-300">
-          <div className="p-6">
-            {showAscii && (
-              <div className="flex space-x-4 mb-4 overflow-x-auto">
-                <pre className="text-xs sm:text-sm whitespace-pre-wrap text-gray-600 dark:text-gray-400">
-                  {ASCII_CAT_FRAMES[currentFrame]}
-                </pre>
-                <pre className="text-xs sm:text-sm whitespace-pre-wrap text-gray-600 dark:text-gray-400">
-                  {ASCII_LOGO}
-                </pre>
-              </div>
-            )}
-            <div className="space-y-2">
-              {output.map((line, index) => (
-                <div key={index} className="whitespace-pre-wrap">{line}</div>
-              ))}
-              <form onSubmit={handleSubmit} className="flex items-center">
-                <span className="mr-2 text-blue-600 dark:text-blue-400">visitor@tigerlake.xyz:~$</span>
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  className="flex-grow bg-transparent focus:outline-none text-gray-800 dark:text-gray-200"
-                  autoFocus
-                />
-              </form>
-            </div>
+          <div className="space-y-6">
+            <motion.div variants={itemVariants}>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Discord Presence</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center space-x-4">
+                    {avatar ? (
+                      <img
+                        src={avatar}
+                        alt="Discord Avatar"
+                        className="w-16 h-16 rounded-full"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 bg-gray-300 rounded-full animate-pulse"></div>
+                    )}
+                    <div>
+                      <p className="font-semibold">{discordStatus?.username || 'Trixzy'}</p>
+                      <div className="flex items-center space-x-2">
+                        <div className={`w-3 h-3 rounded-full ${
+                          discordStatus?.discord_status === 'online' ? 'bg-green-500' :
+                          discordStatus?.discord_status === 'idle' ? 'bg-yellow-500' :
+                          discordStatus?.discord_status === 'dnd' ? 'bg-red-500' :
+                          'bg-gray-500'
+                        }`}></div>
+                        <span>{discordStatus?.discord_status || 'Loading...'}</span>
+                      </div>
+                      {discordStatus?.activities && discordStatus.activities[0] && (
+                        <p className="text-sm mt-2">
+                          {discordStatus.activities[0].type === 0 ? 'Playing' : 'Doing'}: {discordStatus.activities[0].name}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            <motion.div variants={itemVariants}>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Spotify</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {music ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-4">
+                        <img src={albumArt || '/placeholder.svg'} alt="Album Art" className="w-16 h-16 rounded-md" />
+                        <div>
+                          <p className="font-semibold">Now Playing:</p>
+                          <a href={spotifyLink || '#'} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">
+                            {music}
+                          </a>
+                        </div>
+                      </div>
+                      <Progress value={progress} />
+                    </div>
+                  ) : (
+                    <p>No music playing</p>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
           </div>
+
+          <motion.div variants={itemVariants} className="lg:col-span-3">
+            <Card>
+              <CardHeader>
+                <CardTitle>GitHub Repositories</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {githubRepos.map((repo: any) => (
+                    <a
+                      key={repo.id}
+                      href={repo.html_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block border p-4 rounded-lg hover:shadow-md transition-shadow duration-300 dark:hover:shadow-lg"
+                    >
+                      <h3 className="font-semibold">{repo.name}</h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                        {repo.description ? (repo.description.length > 75 ? repo.description.substring(0, 75) + '...' : repo.description) : 'No description'}
+                      </p>
+                      <div className="mt-2 flex items-center space-x-2">
+                        <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded">{repo.language}</span>
+                        <span className="text-xs">⭐ {repo.stargazers_count}</span>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div variants={itemVariants} className="lg:col-span-3">
+            <Card>
+              <CardHeader>
+                <CardTitle>Social Links</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <motion.a
+                    href="https://github.com/trixzyy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center p-4 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors duration-300"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <Github size={32} className="mr-4" />
+                    <div>
+                      <p className="font-semibold">GitHub</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">@trixzyy</p>
+                    </div>
+                  </motion.a>
+                  <motion.a
+                    href="https://twitter.com/trixzydev"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center p-4 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors duration-300"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <Twitter size={32} className="mr-4" />
+                    <div>
+                      <p className="font-semibold">Twitter</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">@trixzydev</p>
+                    </div>
+                  </motion.a>
+                  <motion.a
+                    href="https://discord.com/users/992171799536218142"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center p-4 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors duration-300"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <CircleUser size={32} className="mr-4" />
+                    <div>
+                      <p className="font-semibold">Discord</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">@trixzy</p>
+                    </div>
+                  </motion.a>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
         </div>
       </main>
-      <div ref={bottomRef} />
-    </div>
-  );
+
+      <footer className="bg-white dark:bg-gray-900 shadow-md mt-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex flex-col md:flex-row justify-between items-center">
+            <p className="text-center md:text-left mb-4 md:mb-0">
+              © {new Date().getFullYear()} TigerLake. All rights reserved.
+            </p>
+            <div className="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">
+              Built with React, Next.js, and a lot of ☕
+            </div>
+          </div>
+        </div>
+      </footer>
+    </motion.div>
+  )
 }
