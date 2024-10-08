@@ -1,7 +1,6 @@
 import React from 'react';
 import { GitFork, Star, Sun, Moon } from 'lucide-react';
 import { zoneMessages } from '@/utils/zoneMessages';
-import { useThemeSwitcher } from '@/hooks/useThemeSwitcher'
 
 export interface Command {
   description: string;
@@ -124,23 +123,8 @@ const commands: CommandMap = {
   },
   theme: {
     description: 'Change terminal theme (light/dark) or toggle if no argument is provided',
-    execute: (args, addToOutput, state) => {
-      const { theme, switchTheme } = useThemeSwitcher()
-      const currentTheme = theme
-      let newTheme;
-
-      if (args.length === 0) {
-        newTheme = currentTheme === 'light' ? 'dark' : 'light';
-      } else {
-        newTheme = args[0] === 'light' ? 'light' : 'dark';
-      }
-
-      switchTheme(newTheme);
-      addToOutput(
-        <p>
-          Theme set to {newTheme} <span>{newTheme === 'dark' ? <Moon size={16} /> : <Sun size={16} />}</span>
-        </p>
-      );
+    execute: () => {
+      // This will be overwritten in the TerminalComponent
     },
   },
   music: {
@@ -205,36 +189,14 @@ const commands: CommandMap = {
       );
     },
   },
-  weather: {
-    description: 'Get current weather information',
-    execute: async (args, addToOutput) => {
-      const city = args.join(' ') || 'London';
-      const apiKey = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY;
-      const url = `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=metric`;
-
-      try {
-        const response = await fetch(url);
-        const data = await response.json();
-
-        if (data.cod === 200) {
-          addToOutput(
-            <div className="space-y-2">
-              <p className="font-bold">Weather in {data.name}, {data.sys.country}</p>
-              <p>Temperature: {Math.round(data.main.temp)}°C</p>
-              <p>Feels like: {Math.round(data.main.feels_like)}°C</p>
-              <p>Description: {data.weather[0].description}</p>
-              <p>Humidity: {data.main.humidity}%</p>
-              <p>Wind speed: {data.wind.speed} m/s</p>
-            </div>
-          );
-        } else {
-          addToOutput(<p>Error: Unable to fetch weather data for {city}.</p>);
-        }
-      } catch (error) {
-        addToOutput(<p>Error: Unable to fetch weather data. Please try again later.</p>);
-      }
+  exit: {
+    description: 'Exit the terminal',
+    execute: (_, addToOutput) => {
+      addToOutput(
+        <p>Sorry, I can't let you do that. Type 'help' for a list of available commands.</p>
+      );
     },
-  },
+  }
 };
 
 // Aliases for commands
